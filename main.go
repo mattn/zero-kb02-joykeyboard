@@ -74,8 +74,8 @@ func main() {
 	keyc := [12]keyboard.Keycode{
 		keyboard.KeyLeftShift, keyboard.KeyLeft, keyboard.KeyLeftCtrl,
 		keyboard.KeyUp, keyboard.KeyMenu, keyboard.KeyDown,
-		keyboard.KeyLeftGUI, keyboard.KeyRight, keyboard.KeyLeftAlt,
-		keyboard.KeyC, keyboard.KeyV, keyboard.KeyTab,
+		keyboard.KeyTab, keyboard.KeyRight, keyboard.KeyLeftAlt,
+		keyboard.KeyC, keyboard.KeyV, keyboard.KeyEnter,
 	}
 
 	ws := NewWS2812B(machine.GPIO1)
