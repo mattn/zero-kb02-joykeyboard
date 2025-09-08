@@ -133,6 +133,7 @@ func main() {
 
 	var newk [12]bool
 	var oldk [12]bool
+	var olde bool // ESC
 	keyc := [12]keyboard.Keycode{
 		keyboard.KeyLeftShift, keyboard.KeyLeft, keyboard.KeyLeftCtrl,
 		keyboard.KeyUp, keyboard.KeyMenu, keyboard.KeyDown,
@@ -279,6 +280,14 @@ func main() {
 				}
 			}
 		}
+		newe := !curr1 && !oldk[6] && newk[6]
+		if !olde && newe {
+			kb.Down(keyboard.KeyEsc)
+		} else if olde && !newe {
+			kb.Up(keyboard.KeyEsc)
+		}
+		olde = newe
+
 		oldk = newk
 
 		ws.WriteRaw(btnc[:])
