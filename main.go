@@ -259,35 +259,35 @@ func main() {
 		newk[9] = rowPins[0].Get()
 		newk[10] = rowPins[1].Get()
 		newk[11] = rowPins[2].Get()
-
-		for i, k := range newk {
-			if newk[i] != oldk[i] {
-				if k {
-					updated = true
-					colors[i] = 100
-					ci += 30
-					kb.Down(keyc[i])
-				} else {
-					kb.Up(keyc[i])
-				}
-			} else {
-				if colors[i] > 0 {
-					colors[i] -= 5
-					rgb := hueToRGB(float64(ci), 1.0, float64(colors[i])/100)
-					btnc[i] = uint32(rgb.G)<<24 | uint32(rgb.R)<<16 | uint32(rgb.B)<<8 | uint32(0xFF)
-				} else {
-					btnc[i] = 0
-				}
-			}
-		}
+		// ESC
 		newe := !curr1 && !oldk[6] && newk[6]
 		if !olde && newe {
 			kb.Down(keyboard.KeyEsc)
 		} else if olde && !newe {
 			kb.Up(keyboard.KeyEsc)
+		} else {
+			for i, k := range newk {
+				if newk[i] != oldk[i] {
+					if k {
+						updated = true
+						colors[i] = 100
+						ci += 30
+						kb.Down(keyc[i])
+					} else {
+						kb.Up(keyc[i])
+					}
+				} else {
+					if colors[i] > 0 {
+						colors[i] -= 5
+						rgb := hueToRGB(float64(ci), 1.0, float64(colors[i])/100)
+						btnc[i] = uint32(rgb.G)<<24 | uint32(rgb.R)<<16 | uint32(rgb.B)<<8 | uint32(0xFF)
+					} else {
+						btnc[i] = 0
+					}
+				}
+			}
 		}
 		olde = newe
-
 		oldk = newk
 
 		ws.WriteRaw(btnc[:])
