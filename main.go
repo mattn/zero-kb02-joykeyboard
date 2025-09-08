@@ -2,14 +2,21 @@ package main
 
 import (
 	//"fmt"
+	"image/color"
 	"machine"
 	"time"
 
-	pio "github.com/tinygo-org/pio/rp2-pio"
-	"github.com/tinygo-org/pio/rp2-pio/piolib"
 	"machine/usb/hid/keyboard"
 	"machine/usb/hid/mouse"
+
+	pio "github.com/tinygo-org/pio/rp2-pio"
+	"github.com/tinygo-org/pio/rp2-pio/piolib"
+
+	"tinygo.org/x/drivers"
 	"tinygo.org/x/drivers/encoders"
+	"tinygo.org/x/drivers/ssd1306"
+	"tinygo.org/x/tinyfont"
+	"tinygo.org/x/tinyfont/gophers"
 )
 
 type WS2812B struct {
@@ -31,7 +38,21 @@ func (ws *WS2812B) WriteRaw(rawGRB []uint32) error {
 }
 
 func main() {
+	machine.I2C0.Configure(machine.I2CConfig{
+		Frequency: 2.8 * machine.MHz,
+		SDA:       machine.GPIO12,
+		SCL:       machine.GPIO13,
+	})
+
 	machine.InitADC()
+
+	display := ssd1306.NewI2C(machine.I2C0)
+	display.Configure(ssd1306.Config{
+		Address: 0x3C,
+		Width:   128,
+		Height:  64,
+	})
+	display.SetRotation(drivers.Rotation180)
 
 	ax := machine.ADC{Pin: machine.GPIO29}
 	ax.Configure(machine.ADCConfig{})
@@ -98,8 +119,16 @@ func main() {
 	kb := keyboard.Port()
 	m := mouse.Port()
 
+	white := color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
+	data := []byte("ABCEF")
+
+	var updated bool
+	update := 0
+
 	dd := 1
 	for {
+		updated = false
+
 		x := int(ax.Get())
 		y := int(ay.Get())
 		dx := 0
@@ -115,29 +144,41 @@ func main() {
 			dy = dd
 		}
 		if dx != 0 || dy != 0 {
+			if update == 0 {
+				update = 20
+			}
+			updated = true
 			m.Move(dx, dy)
+		} else {
+			update = 0
 		}
 
 		curr1 := btn1.Get()
 		if prev1 && !curr1 {
+			updated = true
 			dd = 2
 		} else if !prev1 && curr1 {
+			updated = true
 			dd = 1
 		}
 		prev1 = curr1
 
 		curr2 := btn2.Get()
 		if prev2 && !curr2 {
+			updated = true
 			m.Press(mouse.Left)
 		} else if !prev2 && curr2 {
+			updated = true
 			m.Release(mouse.Left)
 		}
 		prev2 = curr2
 
 		newv := enc.Position()
 		if newv > oldv {
+			updated = true
 			m.WheelDown()
 		} else if newv < oldv {
+			updated = true
 			m.WheelUp()
 		}
 		oldv = newv
@@ -182,6 +223,7 @@ func main() {
 		for i, k := range newk {
 			if newk[i] != oldk[i] {
 				if k {
+					updated = true
 					colors[i] = 0xFFFFFFFF
 					kb.Down(keyc[i])
 				} else {
@@ -193,6 +235,18 @@ func main() {
 		oldk = newk
 
 		ws.WriteRaw(colors)
+
+		if updated {
+			if update > 0 {
+				update--
+			}
+			if update == 0 {
+				data[0], data[1], data[2], data[3], data[4] = data[1], data[2], data[3], data[4], data[0]
+				display.ClearDisplay()
+				tinyfont.WriteLine(&display, &gophers.Regular32pt, 5, 45, string(data), white)
+				display.Display()
+			}
+		}
 
 		time.Sleep(5 * time.Millisecond)
 	}
