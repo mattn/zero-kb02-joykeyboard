@@ -4,6 +4,7 @@ import (
 	//"fmt"
 	"image/color"
 	"machine"
+	"math"
 	"time"
 
 	"machine/usb/hid/keyboard"
@@ -35,6 +36,46 @@ func NewWS2812B(pin machine.Pin) *WS2812B {
 
 func (ws *WS2812B) WriteRaw(rawGRB []uint32) error {
 	return ws.ws.WriteRaw(rawGRB)
+}
+
+type RGB struct {
+	R, G, B uint8
+}
+
+func min3(a, b, c float64) float64 {
+	return math.Min(math.Min(a, b), c)
+}
+
+func hueToRGB(h, s, v float64) RGB {
+	h = math.Mod(h, 360)
+	h /= 60
+	i := math.Floor(h)
+	f := h - i
+	p := v * (1 - s)
+	q := v * (1 - s*f)
+	t := v * (1 - s*(1-f))
+
+	var r, g, b float64
+	switch int(i) % 6 {
+	case 0:
+		r, g, b = v, t, p
+	case 1:
+		r, g, b = q, v, p
+	case 2:
+		r, g, b = p, v, t
+	case 3:
+		r, g, b = p, q, v
+	case 4:
+		r, g, b = t, p, v
+	case 5:
+		r, g, b = v, p, q
+	}
+
+	return RGB{
+		R: uint8(math.Round(r * 255)),
+		G: uint8(math.Round(g * 255)),
+		B: uint8(math.Round(b * 255)),
+	}
 }
 
 func main() {
@@ -110,11 +151,8 @@ func main() {
 		c.Configure(machine.PinConfig{Mode: machine.PinInputPulldown})
 	}
 
-	colors := []uint32{
-		0x00000000, 0x00000000, 0x00000000, 0x00000000,
-		0x00000000, 0x00000000, 0x00000000, 0x00000000,
-		0x00000000, 0x00000000, 0x00000000, 0x00000000,
-	}
+	colors := [12]int{}
+	btnc := [12]uint32{}
 
 	kb := keyboard.Port()
 	m := mouse.Port()
@@ -122,6 +160,7 @@ func main() {
 	white := color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
 	data := []byte("ABCEF")
 
+	ci := 0
 	var updated bool
 	update := 0
 
@@ -224,17 +263,25 @@ func main() {
 			if newk[i] != oldk[i] {
 				if k {
 					updated = true
-					colors[i] = 0xFFFFFFFF
+					colors[i] = 100
+					ci += 30
 					kb.Down(keyc[i])
 				} else {
-					colors[i] = 0x00000000
 					kb.Up(keyc[i])
+				}
+			} else {
+				if colors[i] > 0 {
+					colors[i] -= 5
+					rgb := hueToRGB(float64(ci), 1.0, float64(colors[i])/100)
+					btnc[i] = uint32(rgb.G)<<24 | uint32(rgb.R)<<16 | uint32(rgb.B)<<8 | uint32(0xFF)
+				} else {
+					btnc[i] = 0
 				}
 			}
 		}
 		oldk = newk
 
-		ws.WriteRaw(colors)
+		ws.WriteRaw(btnc[:])
 
 		if updated {
 			if update > 0 {
